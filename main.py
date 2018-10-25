@@ -1,0 +1,1 @@
+from curVersion.test import test_structure

@@ -1,0 +1,19 @@
+testP
+variables:
+var_cont	Continuous	(1.0,10.0)	5	100	Continuous variable.
+var_disc	Discrete	[1,2,3,4,5,6,7]	3	Discrete variable.
+var_const	Constant	9	Constant variable.
+responses:
+resp_obj	Objective	min	1.0	Objective response.
+resp_constr1	Constraint	0	10	Constraint response.
+resp_constr2	Constraint	-10	10	Constraint response.
+resp_moni	Monitored	Monitored response.
+processes:
+proc0	4	proc0
+mod1	General	[var_cont]	[resp_moni]	module 1
+mod2	General	[var_const,resp_moni]	[resp_constr1]	module 2
+mod3	General	[resp_constr1,resp_constr2]	[resp_obj]	module 3
+mod4	General	[var_disc]	[resp_constr2]	module 4
+proc1	0	proc1
+proc2	1	proc2
+mod1	General	[var_cont]	[resp_moni]	module 1
