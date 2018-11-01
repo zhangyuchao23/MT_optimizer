@@ -2,7 +2,7 @@
 A class for the nodes on the workflow tree.
 '''
 class Node:
-	def __init__(self, child=None, changedFlag=False):
+	def __init__(self, child=None, changedFlag=True):
 		'''
 		Attributes
 		----------
@@ -34,9 +34,3 @@ class Node:
 				raise TypeError("Parameter changedFlag must be of type bool.")
 		except Exception as e:
 			raise e
-
-	def change_flag(self):
-		'''
-		Called when node is changed. Turn the changedFlag to True.
-		'''
-		self.changedFlag = True

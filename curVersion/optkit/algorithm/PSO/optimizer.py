@@ -5,39 +5,43 @@ import time
 from collections import namedtuple
 from scipy.spatial import cKDTree
 import numpy as np
-import swarm
-from ..utils.shared_data import variables
+from . import Swarm
+from ...workflow import Continuous, Discrete, Constant
 
-class Optimizer:
-	'''
-	An optimizer class.
-
-	Attributes
-	----------
-	particles : int
-		the number of the particles in the swarm
-	dimensions : int
-		the number of the dimensions
-	neighbour : int
-		the size of a particle's neighbourhood
-	pswarm : Swarm
-		the particle swarm of this optimizer
-	history : list of namedtuple
-		store every iteration's gbest_pos, gbest_eval, pbest_pos, pbest_eval, position, velocity, evaluation
-	History : type
-		a structure and the basic element of history
-	var_list : list of str
-		the list of names of input variables
-	upper : ndarray of float, size dimensions
-		the upper bound of each dimension
-	lower : ndarray of float, size dimensions
-		the lower bound of each dimension
-	v_limit : ndarray of float, size dimensions
-		the limit of velocity. set to (upper-lower)/2
-	'''
-	def __init__(self, particles, neighbour):
+class PSO_Optimizer:
+	def __init__(self, particles, neighbour, variables):
 		'''
-		Initialize the optimizer.
+		Parameters
+		----------
+		particles : int
+			the number of the particles in the swarm
+		neighbour : int
+			the size of a particle's neighbourhood
+		variables : list of Variable
+			the variables of the project
+
+		Attributes
+		----------
+		particles : int
+			the number of the particles in the swarm
+		dimensions : int
+			the number of the dimensions
+		neighbour : int
+			the size of a particle's neighbourhood
+		pswarm : Swarm
+			the particle swarm of this optimizer
+		history : list of namedtuple
+			store every iteration's gbest_pos, gbest_eval, pbest_pos, pbest_eval, position, velocity, evaluation
+		History : type
+			a structure and the basic element of history
+		var_list : list of Variable
+			the list of input variables
+		upper : ndarray of float, size dimensions
+			the upper bound of each dimension
+		lower : ndarray of float, size dimensions
+			the lower bound of each dimension
+		v_limit : ndarray of float, size dimensions
+			the limit of velocity. set to (upper-lower)/2
 		'''
 		self.particles = particles
 		self.neighbour = neighbour
@@ -58,21 +62,22 @@ class Optimizer:
 		self.var_list = []
 		_upper = []
 		_lower = []
-		for key in variables:
-			if not variables[key].type == 3:
-				self.var_list.append(key)
-				_lower.append(variables[key].range[0])
-				_upper.append(variables[key].range[-1])
+		for var in variables:
+			if not isinstance(var, Constant):
+				self.var_list.append(var)
+				_lower.append(var.var_range[0])
+				_upper.append(var.var_range[-1])
 			else:
 				pass
-		self.dimensions = len(var_list)
-		self.pswarm = Swarm(particles, dimensions)
+		self.dimensions = len(self.var_list)
+		self.pswarm = Swarm(self.particles, self.dimensions)
 		_upper = np.array(_upper)
 		_lower = np.array(_lower)
 		self.lower = np.repeat(_lower[np.newaxis], self.particles, axis=0)
 		self.upper = np.repeat(_upper[np.newaxis], self.particles, axis=0)
-		self.v_limit = (self.upper - self.lower) / 2
-		self.pswarm.initiate(lower, upper)
+		self.v_limit = (self.upper - self.lower) / 40
+		self.pswarm.initiate(self.lower, self.upper)
+		self.post_process()
 
 	def optimize(self, iterations, obj_func):
 		'''
@@ -91,11 +96,11 @@ class Optimizer:
 			# get evaluation
 			_evaluation = []
 			for j in range(self.particles):
-				obj_in = self.pre_process(j)
-				p_eval = obj_func(obj_in)
+				for var_index in range(self.dimensions):
+					self.var_list[var_index].value = self.pswarm.position[j][var_index]
+				p_eval = obj_func()
 				_evaluation.append(p_eval)
 			self.pswarm.evaluation = np.array(_evaluation)
-
 			# update pbest
 			if i == 0:
 				self.pswarm.pbest_eval = self.pswarm.evaluation.copy()
@@ -106,17 +111,13 @@ class Optimizer:
 						self.pswarm.pbest_pos[j] = self.pswarm.position[j]
 					else:
 						pass
-
 			# update gbest
 			self.pswarm.gbest_eval = self.pswarm.pbest_eval.min(axis=0)
 			self.pswarm.gbest_pos = self.pswarm.pbest_pos[self.pswarm.pbest_eval.argmin(axis=0)]
-
 			# update velocity & position
 			self.update_swarm(iterations, i)
-
 			# post process the data of the value
 			self.post_process()
-
 			# print iteration result / record history
 			time_consume = time.time() - time_start
 			print("Iteration {}/{}: best position: {}; best evaluation: {}; time consume: {}.".format(
@@ -126,49 +127,8 @@ class Optimizer:
 		print("---------------Optimization Done---------------")
 		print("Best position: {}".format(self.pswarm.gbest_pos))
 		print("Best evaluation: {}".format(self.pswarm.gbest_eval))
-		print("Total time: {}".format(self.pswarm.time_total))
-
-			
-	def pre_process(self, p_num):
-		'''
-		Process the values of variables that the algorithm generate.
-		For continuous value, find the value and add to the list;
-		For discrete value, approximate the value to the set;
-		For constant value, add to the list.
-		
-		Parameter
-		---------
-		p_num : int
-			indicate the particle number and used to refer values in position
-
-		Return
-		------
-		obj_in : list of dual-tuple (var_name,var_value)
-			The first index of the tuple is the variable's name.
-			The second index of the tuple is the variable's value.
-		'''
-		obj_in = []
-		for i in variables:
-			if variables[i].type == 1:
-				index = self.var_list.index(i)
-				obj_in.append((i,self.swarm.position[p_num][index]))
-			elif variables[i].type == 2:
-				index = self.var_list.index(i)
-				value = self.swarm.position[p_num][index]
-				for j in range(len(variables[i].range)-1):
-					if variables[i].range[j] < value and variables[i].range[j+1] > value:
-						if (value - variables[i].range[j]) <= (variables[i].range[j+1] - value):
-							value = variables[i].range[j]
-						else:
-							value = variables[i].range[j+1]
-					else:
-						pass
-				obj_in.append((i,value))
-			else:
-				obj_in.append((i,variables[i].value))
-
-		return obj_in
-
+		print("Total time: {}".format(time_total))
+	
 	def update_swarm(self, iterations, current_iter):
 		'''
 		Update the velocity and position of the swarm.
@@ -196,14 +156,12 @@ class Optimizer:
 		std_pos = self.pswarm.position.copy()
 		for i in range(self.dimensions):
 			for j in range(self.particles):
-				std_pos[j][i] = std_pos[j][i] / variables[self.var_list[i]].value
-
-		# use cKDTree to get neighbour
+				std_pos[j][i] = std_pos[j][i] / self.var_list[i].baseline
+		# use cKDTree to get neighbour 
 		tree = cKDTree(std_pos)
 		_, nb_index = tree.query(std_pos, k=self.neighbour, p=2)
-
 		# calculate local_best
-		if k == 1:
+		if self.neighbour == 1:
 			local_best = self.pswarm.pbest_pos
 		else:
 			index_min = self.pswarm.pbest_eval[nb_index].argmin(axis=1)
@@ -211,11 +169,11 @@ class Optimizer:
 
 		# update veloctiy
 		w = 0.5 * (iterations - current_iter) / iterations + 0.4
-		cognitive = 2 * np.random.uniform(0, 1, (self.particles, self.dimensions))
-					  * (self.pswarm.pbest_pos - self.pswarm.position)
-		social = 2 * np.random.uniform(0, 1, (self.particles, self.dimensions))
-				   * (local_best - self.pswarm.position)
-		temp_velocity = w * self.pswarm.veloctiy + cognitive + social
+		cognitive = 2 * np.random.uniform(0, 1, (self.particles, self.dimensions)) \
+					* (self.pswarm.pbest_pos - self.pswarm.position)
+		social = 2 * np.random.uniform(0, 1, (self.particles, self.dimensions)) \
+				 * (local_best - self.pswarm.position)
+		temp_velocity = w * self.pswarm.velocity + cognitive + social
 		'''
 		# if velocity exceed the limit, don't change.
 		mask = np.logical_and(temp_velocity >= -self.v_limit, temp_velocity <= self.v_limit)
@@ -225,7 +183,6 @@ class Optimizer:
 		temp_velocity = np.where(mask, temp_velocity, -self.v_limit)
 		mask = temp_velocity <= self.v_limit
 		self.pswarm.velocity = np.where(mask, temp_velocity, self.v_limit)
-
 		# update position
 		temp_position = self.pswarm.position + self.pswarm.velocity
 		mask = temp_position >= self.lower
@@ -235,18 +192,27 @@ class Optimizer:
 
 	def post_process(self):
 		'''
-		Approximate the discrete varialbes' value to their range.
+		Approximate the discrete variables' value to the set.
 		'''
-		var_list_len = len(self.var_list)
-		for i in range(var_list_len):
-			temp_var = variables[self.var_list[i]]
-			if temp_var.var_type == 2:
-				for j in range(particles):
-					_len = len(temp_var.var_range) - 1
-					approximate = False
-					for k in range(_len):
-						if self.pswarm.position[j][i] <= (temp_var.var_range[k] + temp_var.var_range[k+1]) / 2:
-							self.pswarm.position[j][i] = temp_var.var_range[k]
-							approximate = True
-					if not approximate:
-						self.pswarm.position[j][i] = temp_var.var_range[-1]
+		for var_index in range(self.dimensions):
+			if isinstance(self.var_list[var_index], Discrete):
+				for p in range(self.particles):
+					v = self.pswarm.position[p][var_index]
+					self.pswarm.position[p][var_index] = self.var_list[var_index].var_range[-1]
+					for set_index in range(len(self.var_list[var_index].var_range)):
+						if v <= self.var_list[var_index].var_range[set_index]:
+							if set_index == 0:
+								self.pswarm.position[p][var_index] = self.var_list[var_index].var_range[0]
+								break
+							else:
+								if (v - self.var_list[var_index].var_range[set_index-1]) < \
+									(self.var_list[var_index].var_range[set_index] - v):
+									self.pswarm.position[p][var_index] = self.var_list[var_index].var_range[set_index-1]
+									break
+								else:
+									self.pswarm.position[p][var_index] = self.var_list[var_index].var_range[set_index]
+									break
+						else:
+							pass
+			else:
+				pass

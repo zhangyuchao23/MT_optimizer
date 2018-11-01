@@ -43,7 +43,7 @@ class Swarm:
 	pbest_pos = attrib(type=np.ndarray, default=np.array([]), validator=instance_of(np.ndarray))
 	pbest_eval = attrib(type=np.ndarray, default=np.array([]), validator=instance_of(np.ndarray))
 	gbest_pos = attrib(type=np.ndarray, default=np.array([]), validator=instance_of(np.ndarray))
-	gbest_eval = attrib(type=float, default=np.inf, validator=instance_of(float,int))
+	gbest_eval = attrib(type=float, default=np.inf, validator=instance_of((float,int)))
 
 	def initiate(self, lower, upper):
 		'''
@@ -56,6 +56,6 @@ class Swarm:
 			the lower bound of dimensions
 		'''
 		self.position = np.random.uniform(low=lower, high=upper, size=(self.particles, self.dimensions))
-		self.velocity = (upper - lower) * np.random.random_sample(size=(self.particles, self.dimensions))
-			- (upper - lower) / 2
+		self.velocity = (upper - lower) * np.random.random_sample(size=(self.particles, self.dimensions)) \
+						- (upper - lower) / 2
 		self.pbest_pos = self.position.copy()

@@ -3,8 +3,7 @@ Complete execute()
 
 Define class Module.
 '''
-from . import Node
-from ..parameter import Variable, Response
+from . import Node, Variable, Response
 from ..utils.portals import portals
 
 class Module(Node):

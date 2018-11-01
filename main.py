@@ -1,1 +1,1 @@
-from curVersion.test import test_structure
+from curVersion.test import test_parameters

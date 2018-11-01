@@ -207,3 +207,19 @@ class Process(Node):
 			raise e
 		else:
 			self.organized = temp_organized
+
+	def run_proc(self):
+		'''
+		Run every module in the process.
+		
+		Returns
+		-------
+		evaluation : float
+			the evaluation of the design
+		'''
+		if self.organized == []:
+			raise ValueError("Process is not organized yet.")
+		for step in self.organized:
+			for mod in step:
+				mod.execute()
+		return evaluate()##################

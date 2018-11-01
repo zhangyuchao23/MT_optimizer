@@ -1,8 +1,10 @@
 '''
 Define parent class Variable and subclass Continuous, Discrete and Constant.
 '''
-class Variable:
-	def __init__(self, name, description=''):
+from . import Node
+
+class Variable(Node):
+	def __init__(self, name, value, description=''):
 		'''
 		Initiate parent class Variable.
 
@@ -12,8 +14,12 @@ class Variable:
 			The name of the variable.
 		description : str
 			The description of the variable.
+		value : float
+			The value of the variable.
 		'''
+		super(Variable, self).__init__(None, True)
 		self.name = str(name)
+		self.value = value
 		self.description = str(description)
 
 	def edit(self, **kwargs):
@@ -48,7 +54,7 @@ class Continuous(Variable):
 		description : str
 			The description of the variable.
 		'''
-		super(Continuous, self).__init__(name, description)
+		super(Continuous, self).__init__(name, baseline, description)
 		self.var_range = var_range
 		self.baseline = baseline
 		self.resolution = resolution
@@ -101,11 +107,15 @@ class Continuous(Variable):
 			When baseline is not of type float or int.
 		IndexError
 			When baseline is out of range.
+		ValueError
+			When baseline is 0.
 		'''
 		if not isinstance(self.baseline, (float, int)):
 			raise TypeError("Parameter baseline must be a float or int.")
 		if not (self.baseline >= self.var_range[0] and self.baseline <= self.var_range[1]):
 			raise IndexError("Baseline is out of range.")
+		if self.baseline == 0:
+			raise ValueError("Baseline cannot be 0.")
 
 	def validator_resolution(self):
 		'''
@@ -130,6 +140,8 @@ class Continuous(Variable):
 				self.resolution = kwargs['resolution']
 				self.validator_resolution()
 			if 'baseline' in kwargs:
+				self.baseline = kwargs['baseline']
+				self.value = self.baseline
 				self.validator_baseline()
 		except Exception as e:
 			raise e
@@ -151,8 +163,8 @@ class Discrete(Variable):
 		description : str
 			The description of the variable.
 		'''
-		super(Discrete, self).__init__(name, description)
-		self.var_range = var_range
+		super(Discrete, self).__init__(name, baseline, description)
+		self.var_range = sorted(var_range)
 		self.baseline = baseline
 		self.validator()
 
@@ -201,11 +213,15 @@ class Discrete(Variable):
 			When baseline is not of type float or int.
 		IndexError
 			When baselien is not in range.
+		ValueError
+			When baseline is 0.
 		'''
 		if not isinstance(self.baseline, (float, int)):
 			raise TypeError("Parameter baseline must be a float or int.")
 		if not self.baseline in self.var_range:
 			raise IndexError("Baseline is out of range.")
+		if self.baseline == 0:
+			raise ValueError("Baseline cannot be 0.")
 
 	def edit(self, **kwargs):
 		try:
@@ -216,6 +232,7 @@ class Discrete(Variable):
 				self.validator_baseline()
 			if 'baseline' in kwargs:
 				self.baseline = kwargs['baseline']
+				self.value = self.baseline
 				self.validator_baseline()
 		except Exception as e:
 			raise e
@@ -235,7 +252,7 @@ class Constant(Variable):
 		description : str
 			The description of the variable.
 		'''
-		super(Constant, self).__init__(name, description)
+		super(Constant, self).__init__(name, baseline, description)
 		self.baseline = baseline
 		self.validator()
 
@@ -265,6 +282,7 @@ class Constant(Variable):
 			super(Constant, self).edit(**kwargs)
 			if 'baseline' in kwargs:
 				self.baseline = kwargs['baseline']
+				self.value = self.baseline
 				self.validator_baseline()
 		except Exception as e:
 			raise e

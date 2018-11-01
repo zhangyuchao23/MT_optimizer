@@ -1,7 +1,9 @@
 '''
 Define parent class Response and subclass Objective, Constraint and Monitored.
 '''
-class Response:
+from . import Node
+
+class Response(Node):
 	def __init__(self, name, description=''):
 		'''
 		Initiate parent class Response.
@@ -13,10 +15,14 @@ class Response:
 		description : str
 			the description of the response
 		'''
+		super(Response, self).__init__(None, True)
 		self.name = str(name)
 		self.description = str(description)
 	
 	def edit(self, **kwargs):
+		'''
+		Allow edition of name and description.
+		'''
 		try:
 			if 'name' in kwargs:
 				self.name = str(kwargs['name'])
